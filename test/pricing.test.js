@@ -28,3 +28,14 @@ test('category helpers', () => {
   assert.equal(isPcCategory('Cable / HDMI'), false);
   assert.equal(round2(10.005 + 5), 15.01);
 });
+
+import { resolveBase } from '../src/utils/pricing.js';
+
+test('resolveBase defaults to the market price and only accepts a real shop price', () => {
+  const shops = [{ retailer: 'Scorptec', price: 265 }, { retailer: 'PC Case Gear', price: 309 }, { retailer: 'Mwave', price: 389 }];
+  assert.deepEqual(resolveBase(shops, 265), { basePrice: 265, retailer: null });
+  assert.deepEqual(resolveBase(shops, 265, 309), { basePrice: 309, retailer: 'PC Case Gear' });
+  assert.deepEqual(resolveBase(shops, 265, '389.00'), { basePrice: 389, retailer: 'Mwave' });
+  assert.ok(resolveBase(shops, 265, 123).error);
+  assert.ok(resolveBase(shops, 265, 'abc').error);
+});

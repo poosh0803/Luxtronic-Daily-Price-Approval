@@ -62,3 +62,14 @@ export function isPcCategory(categoryName) {
 export function pcCategoryLabels() {
   return (process.env.PC_CATEGORIES || 'CPU,GPU,DRAM,SSD,MB').split(',').map((s) => s.trim()).filter(Boolean);
 }
+
+// The price a markup is added to: the market price, or (when the approver clicked one) a shop price
+// that really is on the suggestion. Anything else is refused - a free-form amount is what Custom is for.
+// Returns { basePrice, retailer } or { error }.
+export function resolveBase(retailerPrices, marketPrice, requested) {
+  if (requested === undefined || requested === null) return { basePrice: round2(marketPrice), retailer: null };
+  const wanted = round2(Number(requested));
+  const shop = (retailerPrices || []).find((r) => Math.abs(round2(r.price) - wanted) < 0.005);
+  if (!shop) return { error: 'basePrice must be one of the shop prices on this suggestion' };
+  return { basePrice: round2(shop.price), retailer: shop.retailer };
+}

@@ -29,7 +29,7 @@ function historyRow(p) {
       <td>${formatDateTime(decided)}</td>
       <td><div class="product-name">${escapeHtml(p.name)}</div><div class="product-meta">${escapeHtml(p.category)}</div></td>
       <td class="num">${formatMoney(p.current_price)}</td>
-      <td class="num">${formatMoney(p.market_price)}</td>
+      <td class="num">${formatMoney(p.market_price)}${p.approved_base_retailer ? `<div class="product-meta">base: ${escapeHtml(p.approved_base_retailer)} ${formatMoney(p.approved_base)}</div>` : ''}</td>
       <td>${markupText(p)}</td>
       <td class="num"><strong>${p.status === 'rejected' ? '-' : formatMoney(p.approved_price)}</strong></td>
       <td><span class="badge ${cls}">${label}</span></td>

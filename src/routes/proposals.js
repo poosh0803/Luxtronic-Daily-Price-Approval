@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { pushPrice, fetchPrice } from '../odoo.js';
-import { markupOptions, pcCategoryLabels, round2 } from '../utils/pricing.js';
+import { markupOptions, pcCategoryLabels, resolveBase, round2 } from '../utils/pricing.js';
 const router = express.Router();
 
 const SELECT_PROPOSALS = `
@@ -57,7 +57,12 @@ router.post('/:id/approve', async (req, res) => {
       return res.status(409).json({ success: false, message: `Proposal is already ${proposal.status}` });
     }
 
-    const approvedPrice = round2(Number(proposal.market_price) + markup);
+    // The base the markup is added to: the market price, or a shop price the approver picked.
+    // It must be one of this suggestion's own shop prices - anything else is covered by a Custom markup.
+    const base = resolveBase(proposal.retailer_prices, proposal.market_price, req.body.basePrice);
+    if (base.error) return res.status(400).json({ success: false, message: base.error });
+    const { basePrice, retailer: baseRetailer } = base;
+    const approvedPrice = round2(basePrice + markup);
     if (approvedPrice <= 0) {
       return res.status(400).json({ success: false, message: 'Final price must be above $0' });
     }
@@ -75,8 +80,9 @@ router.post('/:id/approve', async (req, res) => {
       await client.query('BEGIN');
       await client.query(
         `UPDATE proposals SET status = 'approved', approved_markup = $1, approved_price = $2,
+                approved_base = $4, approved_base_retailer = $5,
                 decided_at = now(), odoo_pushed_at = now() WHERE id = $3`,
-        [markup, approvedPrice, id],
+        [markup, approvedPrice, id, basePrice, baseRetailer],
       );
       await client.query('UPDATE products SET current_price = $1 WHERE id = $2', [approvedPrice, proposal.product_id]);
       await client.query('COMMIT');
@@ -89,7 +95,7 @@ router.post('/:id/approve', async (req, res) => {
       client.release();
     }
 
-    res.json({ success: true, approvedPrice, markup });
+    res.json({ success: true, approvedPrice, markup, basePrice });
   } catch (error) {
     console.error('Approve failed:', error.message);
     res.status(500).json({ success: false, message: 'Failed to approve proposal', error: error.message });

@@ -32,6 +32,8 @@ CREATE TABLE proposals (
   notes TEXT,
   status VARCHAR(12) NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'approved', 'rejected', 'superseded', 'reverted')),
+  approved_base NUMERIC(10,2),                -- the price the markup was added to (market price, or a shop price the approver picked)
+  approved_base_retailer VARCHAR(60),         -- which shop that was, when picked by hand
   approved_markup NUMERIC(8,2),
   approved_price NUMERIC(10,2),
   decided_at TIMESTAMPTZ,

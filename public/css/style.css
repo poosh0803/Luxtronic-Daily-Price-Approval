@@ -213,3 +213,17 @@ body.dark-mode .run-status { color: #aaa; }
 .hint-input { width: 100%; min-width: 150px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; color: var(--text); }
 .hint-input:focus { outline: none; border-color: var(--brand); }
 body.dark-mode .hint-input { background-color: #2a2a2a; color: #f0f0f0; border-color: #444; }
+
+/* Clickable shop prices: pick one as the base for the markup. */
+.price-pick {
+  background: none; border: 1px solid transparent; border-radius: 4px; padding: 1px 6px; margin: -1px -6px -1px 0;
+  font: inherit; color: inherit; cursor: pointer; text-align: right;
+}
+.price-pick:hover { border-color: var(--brand); background: #fdf6e8; }
+.price-pick.is-base { border-color: var(--brand); background: #fdf6e8; font-weight: 700; }
+.retailers .lowest .price-pick { font-weight: 700; }
+.base-note { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.link-btn { background: none; border: none; padding: 0; font: inherit; color: var(--info-text); cursor: pointer; text-decoration: underline; }
+body.dark-mode .price-pick:hover, body.dark-mode .price-pick.is-base { background: #3a3220; border-color: #f0b33e; }
+body.dark-mode .base-note { color: #aaa; }
+body.dark-mode .link-btn { color: #64b5f6; }

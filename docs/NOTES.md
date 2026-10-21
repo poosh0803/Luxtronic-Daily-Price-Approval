@@ -24,6 +24,7 @@ Odoo  <->  Luxtronic-Odoo-API (port 4001)  <->  this app (8006)  <->  shops (Sta
 | **Pricing is done by code, not an AI agent** | Cheaper, faster, repeatable. An agent only helps with what the rules can't judge (search words, "no listing" verdicts) |
 | **Fail safe: skip, never guess** | A wrong match shows up as a plausible-looking wrong price. Skipped products are listed with the reason instead |
 | Only **products with stock in Odoo** are priced | Nothing on hand means nothing to sell; cut a run from 213 to about 83 products |
+| Approver can **pick any shop price as the base** | One shop sometimes has an unreasonably low price; the lowest-in-stock rule would then drag the suggestion down. The server only accepts a price that is on the suggestion, and records the shop used (`approved_base`, `approved_base_retailer`) |
 | **Revert** checks Odoo's current price first | If someone changed the price in Odoo since, reverting would overwrite their change, so it refuses |
 
 ## Price sources: what was found

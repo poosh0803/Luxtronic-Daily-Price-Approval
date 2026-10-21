@@ -38,7 +38,7 @@ router.get('/proposals', async (req, res) => {
     const filter = { history: `pr.status IN ('approved', 'rejected', 'reverted')`, all: 'TRUE' }[req.query.status] || `pr.status = 'pending'`;
     const { rows } = await pool.query(
       `SELECT pr.id, pr.status, pr.market_price, pr.current_price, pr.retailer_prices, pr.notes,
-              pr.approved_markup, pr.approved_price, pr.decided_at, pr.created_at,
+              pr.approved_base, pr.approved_base_retailer, pr.approved_markup, pr.approved_price, pr.decided_at, pr.created_at,
               p.id AS product_id, p.odoo_id, p.sku, p.name, p.category
          FROM proposals pr JOIN products p ON p.id = pr.product_id
         WHERE ${filter} ORDER BY pr.created_at DESC LIMIT 500`,

@@ -36,7 +36,7 @@ Then open **Products** and click **Sync from Odoo** (or let a run do it). Needs 
 Responses are `{ success: true, ... }` or `{ success: false, message }`.
 
 **UI (no auth, LAN-only)**
-`GET /api/proposals[?status=history]`, `POST /api/proposals/:id/approve {markup, custom?}`, `POST /api/proposals/:id/reject`, `POST /api/proposals/reject-many {ids}`, `POST /api/proposals/:id/revert`, `GET /api/products`, `PUT /api/products/:id/tracked`, `PUT /api/products/:id/search-hint`, `PUT /api/products/:id/no-listing`, `POST /api/products/sync`, `GET /api/lookup?q=&pages=&verify=`, `POST /api/runs`, `GET /api/runs/latest`, `GET /api/config`.
+`GET /api/proposals[?status=history]`, `POST /api/proposals/:id/approve {markup, custom?, basePrice?}`, `POST /api/proposals/:id/reject`, `POST /api/proposals/reject-many {ids}`, `POST /api/proposals/:id/revert`, `GET /api/products`, `PUT /api/products/:id/tracked`, `PUT /api/products/:id/search-hint`, `PUT /api/products/:id/no-listing`, `POST /api/products/sync`, `GET /api/lookup?q=&pages=&verify=`, `POST /api/runs`, `GET /api/runs/latest`, `GET /api/config`.
 
 **Agent (`Authorization: Bearer <AGENT_API_KEY>`)**
 `GET /api/agent/status`, `/proposals`, `/runs`, `/runs/:id`, `/products[?sync=1]`, `/lookup`; `POST /api/agent/runs`, `/proposals`; `PUT /api/agent/products/:id/search-hint`, `/no-listing`. Details in [AGENT.md](AGENT.md).
@@ -65,7 +65,8 @@ Only these fixed hosts are contacted; callers supply a search term, never a URL.
 ## Behaviour worth knowing
 
 - **Market price** = lowest in-stock shop price, computed server-side. If every shop is out of stock the lowest listed price is used and the suggestion is noted.
-- **Final price** = market price + markup. Presets come from `MARKUP_OPTIONS`; **Custom** accepts any amount within ±$1000 as long as the final price stays above $0.
+- **Base price:** click any shop price on a suggestion to use it as the base instead of the market price (handy when one shop is unreasonably low). The server only accepts a price that is actually on that suggestion. History shows which shop's price was used.
+- **Final price** = base price (the market price unless you picked a shop price) + markup. Presets come from `MARKUP_OPTIONS`; **Custom** accepts any amount within ±$1000 as long as the final price stays above $0.
 - **Approve** pushes to Odoo first; if Odoo fails, the suggestion stays pending and the error is shown so you can retry. A product has one pending suggestion at a time, and a newer run replaces it.
 - A market move over 20% from the current price shows a "Big change - check" badge.
 - `PC_CATEGORIES` sets which Odoo top-level categories count as PC parts (default `CPU,GPU,DRAM,SSD,MB`).

@@ -4,6 +4,7 @@ let activeGroup = 'All';
 let categories = [];
 const chosen = new Map(); // proposal id -> chosen markup number, or 'custom' (survives re-renders)
 const customValues = new Map(); // proposal id -> text typed in the custom box
+const baseChoice = new Map(); // proposal id -> shop price picked as the base (absent = the lowest in-stock price)
 
 const SUSPICIOUS_CHANGE = 0.2; // flag market moves bigger than 20% from the current price
 
@@ -26,22 +27,34 @@ function markupOf(p) {
   return chosen.has(p.id) ? chosen.get(p.id) : markups[0];
 }
 
+// The price the markup is added to: a shop price the approver clicked, otherwise the market price.
+function baseOf(p) {
+  return baseChoice.has(p.id) ? baseChoice.get(p.id) : Number(p.market_price);
+}
+
+function baseShop(p) {
+  if (!baseChoice.has(p.id)) return null;
+  const hit = p.retailer_prices.find((r) => Number(r.price) === baseChoice.get(p.id));
+  return hit ? hit.retailer : null;
+}
+
 function diffBadgeHtml(p) {
   const markup = markupOf(p);
   if (markup === null) return '<span class="badge badge-grey">Enter an amount</span>';
-  const diff = Number(p.market_price) + markup - Number(p.current_price);
+  const diff = baseOf(p) + markup - Number(p.current_price);
   if (Math.abs(diff) < 0.005) return '<span class="badge badge-grey">No change</span>';
   return `<span class="badge ${diff < 0 ? 'badge-ok' : 'badge-info'}">${diff > 0 ? '+' : '-'}${formatMoney(Math.abs(diff))} vs current</span>`;
 }
 
 function customPriceText(p) {
   const markup = markupOf(p);
-  return markup === null ? '' : formatMoney(Number(p.market_price) + markup);
+  return markup === null ? '' : formatMoney(baseOf(p) + markup);
 }
 
 function retailersHtml(p) {
   const prices = p.retailer_prices;
   const lowest = Math.min(...prices.filter((r) => r.inStock).map((r) => r.price));
+  const picked = baseChoice.has(p.id) ? baseChoice.get(p.id) : null;
   return prices
     .slice()
     .sort((a, b) => a.price - b.price)
@@ -51,24 +64,32 @@ function retailersHtml(p) {
       const name = href
         ? `<a href="${href}" target="_blank" rel="noopener">${escapeHtml(r.retailer)}</a>`
         : escapeHtml(r.retailer);
-      return `<div class="${cls}"><span>${name}${r.inStock ? '' : ' (out)'}</span><span>${formatMoney(r.price)}</span></div>`;
+      const isBase = picked !== null && Number(r.price) === picked;
+      const price = `<button type="button" class="price-pick ${isBase ? 'is-base' : ''}" data-base="${p.id}" data-price="${r.price}" title="Use this as the base price for the markup">${formatMoney(r.price)}</button>`;
+      return `<div class="${cls}"><span>${name}${r.inStock ? '' : ' (out)'}</span>${price}</div>`;
     })
     .join('');
 }
 
 function warningBadge(p) {
   const current = Number(p.current_price);
-  const market = Number(p.market_price);
+  const market = baseOf(p);
   if (current > 0 && Math.abs(market - current) / current > SUSPICIOUS_CHANGE) {
     return '<div style="margin-top:6px;"><span class="badge badge-warn">Big change - check</span></div>';
   }
   return '';
 }
 
+function baseNote(p) {
+  if (!baseChoice.has(p.id)) return '';
+  const shop = baseShop(p);
+  return `<div class="base-note">Base: ${escapeHtml(shop || 'picked price')} <button type="button" class="link-btn" data-base-reset="${p.id}">reset</button></div>`;
+}
+
 function rowHtml(p) {
   const selected = markupOf(p);
   const current = Number(p.current_price);
-  const market = Number(p.market_price);
+  const market = baseOf(p);
   const chips = markups
     .map((m) => `
       <button type="button" class="markup-chip ${m === selected ? 'selected' : ''}" data-id="${p.id}" data-markup="${m}">
@@ -91,7 +112,7 @@ function rowHtml(p) {
       </td>
       <td class="num"><strong>${formatMoney(current)}</strong></td>
       <td class="retailers">${retailersHtml(p)}</td>
-      <td class="num"><div class="market">${formatMoney(market)}</div>${warningBadge(p)}</td>
+      <td class="num"><div class="market">${formatMoney(market)}</div>${baseNote(p)}${warningBadge(p)}</td>
       <td><div class="markup-chips">${chips}${customChip}</div><div style="margin-top:6px;" id="diff-${p.id}">${diffBadgeHtml(p)}</div></td>
       <td>
         <div class="row-actions">
@@ -176,10 +197,11 @@ async function approve(id, button) {
   }
   if (button) button.disabled = true;
   try {
-    await fetchJSON(`/api/proposals/${id}/approve`, { method: 'POST', body: JSON.stringify({ markup, custom: isCustom(p) }) });
+    await fetchJSON(`/api/proposals/${id}/approve`, { method: 'POST', body: JSON.stringify({ markup, custom: isCustom(p), basePrice: baseChoice.has(id) ? baseChoice.get(id) : undefined }) });
     proposals = proposals.filter((x) => x.id !== id);
     chosen.delete(id);
     customValues.delete(id);
+    baseChoice.delete(id);
     return true;
   } catch (error) {
     showAlert(`${p.name}: ${error.message}`);
@@ -220,6 +242,22 @@ async function approveShown() {
 }
 
 document.addEventListener('click', async (e) => {
+  const pick = e.target.closest('[data-base]');
+  if (pick) {
+    const id = Number(pick.dataset.base);
+    const price = Number(pick.dataset.price);
+    // Clicking the price that is already the base again goes back to the default.
+    if (baseChoice.get(id) === price) baseChoice.delete(id);
+    else baseChoice.set(id, price);
+    render();
+    return;
+  }
+  const reset = e.target.closest('[data-base-reset]');
+  if (reset) {
+    baseChoice.delete(Number(reset.dataset.baseReset));
+    render();
+    return;
+  }
   const chip = e.target.closest('.markup-chip');
   if (chip) {
     const id = Number(chip.dataset.id);
