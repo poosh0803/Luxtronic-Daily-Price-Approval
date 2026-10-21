@@ -227,3 +227,10 @@ body.dark-mode .hint-input { background-color: #2a2a2a; color: #f0f0f0; border-c
 body.dark-mode .price-pick:hover, body.dark-mode .price-pick.is-base { background: #3a3220; border-color: #f0b33e; }
 body.dark-mode .base-note { color: #aaa; }
 body.dark-mode .link-btn { color: #64b5f6; }
+
+/* Pending page toolbar: categories / (direction + bulk actions) / search, one row each. */
+.toolbar-stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.toolbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toolbar-row-split { justify-content: space-between; }
+.toolbar-row .tab-filters { align-self: flex-start; }
+input[type="search"].search-wide { flex: 1; width: 100%; min-width: 0; }

@@ -42,15 +42,19 @@
   </div>
 
   <div class="panel">
-    <div class="toolbar">
-      <div class="toolbar-filters">
-        <input type="search" id="search" placeholder="Search name or SKU">
+    <div class="toolbar-stack">
+      <div class="toolbar-row">
         <div class="tab-filters" id="groupTabs"></div>
-        <div class="tab-filters" id="dirTabs"></div>
       </div>
-      <div class="toolbar-actions">
-        <button class="btn" id="rejectAllBtn"><i class="fas fa-ban"></i> Reject shown</button>
-        <button class="btn btn-primary" id="approveAllBtn"><i class="fas fa-check-double"></i> Approve shown</button>
+      <div class="toolbar-row toolbar-row-split">
+        <div class="tab-filters" id="dirTabs"></div>
+        <div class="toolbar-actions">
+          <button class="btn" id="rejectAllBtn"><i class="fas fa-ban"></i> Reject shown</button>
+          <button class="btn btn-primary" id="approveAllBtn"><i class="fas fa-check-double"></i> Approve shown</button>
+        </div>
+      </div>
+      <div class="toolbar-row">
+        <input type="search" id="search" class="search-wide" placeholder="Search name or SKU">
       </div>
     </div>
     <div class="table-scroll">
