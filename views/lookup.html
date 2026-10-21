@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price Lookup - Luxtronic Price Approval</title>
+<link rel="icon" type="image/png" href="/images/logo.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <div class="logo-container">
+    <img src="/images/logo.png" alt="Luxtronic" class="logo-img">
+    <a href="/" class="brand-name">LUXTRONIC</a>
+    <span class="tagline">Price Approval</span>
+  </div>
+  <div class="dark-mode-toggle" id="darkModeToggle"><i class="fas fa-moon" id="themeIcon"></i></div>
+</header>
+<nav class="nav-bar">
+  <a href="/" class="nav-item"><i class="fas fa-list-check"></i><span class="nav-text">Pending</span></a>
+  <a href="/history" class="nav-item"><i class="fas fa-clock-rotate-left"></i><span class="nav-text">History</span></a>
+  <a href="/products" class="nav-item"><i class="fas fa-microchip"></i><span class="nav-text">Products</span></a>
+  <a href="/lookup" class="nav-item"><i class="fas fa-magnifying-glass-dollar"></i><span class="nav-text">Lookup</span></a>
+</nav>
+<main>
+  <h1>Price Lookup</h1>
+  <p class="subtitle">Prices from StaticICE, with Centrecom, Mwave, Scorptec and PC Case Gear read from their own sites (tick = checked at the shop, includes stock). Search a model or part number.</p>
+
+  <div id="alertBox"></div>
+
+  <div class="panel">
+    <form id="searchForm" class="lookup-form">
+      <input type="search" id="query" placeholder="e.g. Ryzen 7 9800X3D" autocomplete="off" required>
+      <select id="pages" title="Result pages to fetch (20 per page)">
+        <option value="1">1 page</option>
+        <option value="2" selected>2 pages</option>
+        <option value="3">3 pages</option>
+      </select>
+      <button type="submit" class="btn btn-primary" id="searchBtn"><i class="fas fa-magnifying-glass"></i> Search</button>
+    </form>
+  </div>
+
+  <div id="results" style="display:none;">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Showing</div><div class="stat-number orange" id="statCount">-</div><div class="stat-sub" id="statOf"></div></div>
+      <div class="stat-card"><div class="stat-label">Lowest</div><div class="stat-number green" id="statLow">-</div><div class="stat-sub" id="statLowStore"></div></div>
+      <div class="stat-card"><div class="stat-label">Median</div><div class="stat-number blue" id="statMid">-</div></div>
+      <div class="stat-card"><div class="stat-label">Highest</div><div class="stat-number" id="statHigh">-</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <div class="toolbar-filters">
+          <div class="tab-filters" id="storePreset">
+            <button class="tab-btn active" data-preset="main">Main 4</button>
+            <button class="tab-btn" data-preset="all">All shops</button>
+          </div>
+          <label class="check-inline"><input type="checkbox" id="hideNoise" checked> Hide bundles &amp; used</label>
+          <label class="check-inline"><input type="checkbox" id="hideOos"> Hide out of stock</label>
+        </div>
+        <button class="btn btn-sm" id="csvBtn"><i class="fas fa-file-csv"></i> Export CSV</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Shop</th><th>Product</th><th class="num">Price</th><th>Stock</th><th>Updated</th></tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty" style="display:none;">Nothing matches these filters. Try "All shops" or untick the hide options.</div>
+    </div>
+  </div>
+</main>
+<script src="/js/common.js"></script>
+<script src="/js/lookup.js"></script>
+</body>
+</html>

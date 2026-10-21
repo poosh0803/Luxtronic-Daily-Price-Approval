@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>History - Luxtronic Price Approval</title>
+<link rel="icon" type="image/png" href="/images/logo.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <div class="logo-container">
+    <img src="/images/logo.png" alt="Luxtronic" class="logo-img">
+    <a href="/" class="brand-name">LUXTRONIC</a>
+    <span class="tagline">Price Approval</span>
+  </div>
+  <div class="dark-mode-toggle" id="darkModeToggle"><i class="fas fa-moon" id="themeIcon"></i></div>
+</header>
+<nav class="nav-bar">
+  <a href="/" class="nav-item"><i class="fas fa-list-check"></i><span class="nav-text">Pending</span></a>
+  <a href="/history" class="nav-item"><i class="fas fa-clock-rotate-left"></i><span class="nav-text">History</span></a>
+  <a href="/products" class="nav-item"><i class="fas fa-microchip"></i><span class="nav-text">Products</span></a>
+  <a href="/lookup" class="nav-item"><i class="fas fa-magnifying-glass-dollar"></i><span class="nav-text">Lookup</span></a>
+</nav>
+<main>
+  <h1>History</h1>
+  <p class="subtitle">The last 300 decisions.</p>
+  <div id="alertBox"></div>
+  <div class="panel">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Decided</th><th>Product</th><th class="num">Before</th><th class="num">Market</th><th>Markup</th><th class="num">Final</th><th>Result</th><th></th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="empty" style="display:none;">No decisions yet.</div>
+  </div>
+</main>
+<script src="/js/common.js"></script>
+<script src="/js/history.js"></script>
+</body>
+</html>

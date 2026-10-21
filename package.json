@@ -1,0 +1,22 @@
+{
+  "name": "luxtronic-daily-price-approval",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Internal price-approval site: a Claude agent submits market-based PC-part price proposals, a human approves them with a +0/+5/+10/+15 markup, and the price is written to Odoo",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

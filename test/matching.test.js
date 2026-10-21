@@ -1,0 +1,132 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { buildQuery, buildQueries, matchesProduct, evaluate } from '../src/matching.js';
+
+test('buildQuery keeps brand and distinctive tokens only', () => {
+  assert.equal(buildQuery('AMD Ryzen 7 9800X3D 8 Core AM5 CPU'), 'amd 9800x3d');
+  assert.equal(buildQuery('ASUS Dual GeForce RTX 5060 Ti 16GB OC GDDR7 Graphics Card'), 'asus rtx 5060 ti 16gb');
+});
+
+test('model numbers must all be present', () => {
+  const p = 'AMD Ryzen 7 9800X3D 8 Core AM5 CPU';
+  assert.equal(matchesProduct('AMD Ryzen 7 9800X3D Desktop Processor', p), true);
+  assert.equal(matchesProduct('AMD Ryzen 7 7800X3D Desktop Processor', p), false);
+});
+
+test('variant words must agree both ways', () => {
+  const base = 'ASUS Dual GeForce RTX 5060 8GB OC GDDR7';
+  const ti = 'ASUS Dual GeForce RTX 5060 Ti 16GB OC GDDR7';
+  assert.equal(matchesProduct('ASUS Dual RTX 5060 8GB OC Video Card', base), true);
+  assert.equal(matchesProduct('ASUS Dual RTX 5060 Ti 8GB OC Video Card', base), false);
+  assert.equal(matchesProduct('ASUS Dual RTX 5060 16GB Video Card', ti), false);
+  assert.equal(matchesProduct('ASUS Dual RTX 5060 Ti 16GB Video Card', ti), true);
+});
+
+test('capacity and kit layout are normalised', () => {
+  const p = 'Crucial P310 1TB Gen4 2280 NVMe SSD';
+  assert.equal(matchesProduct('Crucial P310 1 TB PCIe Gen4 NVMe SSD', p), true); // shop omits form factor
+  assert.equal(matchesProduct('Crucial P310 1TB 2230 NVMe SSD', p), false); // different form factor
+  assert.equal(matchesProduct('Crucial P310 2TB 2280 NVMe SSD', p), false);
+  assert.equal(matchesProduct('Corsair Vengeance DDR5 32GB (2 x 16GB) 6000MT/s', 'Corsair Vengeance DDR5 6000MHz 32GB(2x16GB)'), true);
+});
+
+const row = (store, price, inStock, name = 'AMD Ryzen 7 9800X3D Desktop Processor') => ({ store, price, inStock, name, noise: false, url: `https://x/${store}` });
+const product = { name: 'AMD Ryzen 7 9800X3D 8 Core AM5 CPU', current_price: 759 };
+
+test('evaluate picks the cheapest in-stock row per shop', () => {
+  const r = evaluate(product, [row('Centrecom', 599, true), row('Mwave', 648, true), row('Scorptec', 679, null), row('PC Case Gear', 640, false), row('PC Case Gear', 679, true), row('JW Computers', 500, null)]);
+  assert.equal(r.outcome, 'submit');
+  assert.deepEqual(r.retailerPrices.map((x) => [x.retailer, x.price, x.inStock]), [['Centrecom', 599, true], ['Mwave', 648, true], ['Scorptec', 679, true], ['PC Case Gear', 679, true]]);
+  assert.match(r.notes, /Scorptec/);
+});
+
+test('evaluate skips when matching listings are too few, too spread, or far from Odoo', () => {
+  assert.equal(evaluate(product, [row('Centrecom', 599, true)]).outcome, 'skip');
+  assert.equal(evaluate(product, [row('Centrecom', 300, true), row('Mwave', 700, true)]).outcome, 'skip');
+  assert.equal(evaluate({ ...product, current_price: 100 }, [row('Centrecom', 599, true), row('Mwave', 610, true)]).outcome, 'skip');
+});
+
+test('bundles flagged as noise are ignored', () => {
+  const bundle = { ...row('Mwave', 650, true), noise: true };
+  assert.equal(evaluate(product, [row('Centrecom', 599, true), bundle]).outcome, 'skip');
+});
+
+test('graphics card prefix spacing does not matter', () => {
+  assert.equal(matchesProduct('ASUS Dual GeForce RTX 4060 EVO OC 8GB GDDR6', 'ASUS DUAL GeForce RTX4060 OC 8GB EVO GDDR6'), true);
+  assert.equal(buildQuery('ASUS DUAL GeForce RTX4060 OC 8GB EVO GDDR6'), 'asus rtx 4060 8gb');
+});
+
+test('board model suffixes and WiFi variants are different products', () => {
+  const tuf = 'ASUS B650M-E WIFI TUF GAMING MOTHERBOARD AM5';
+  assert.equal(matchesProduct('ASUS TUF GAMING B650M-E WIFI AM5 mATX Motherboard', tuf), true);
+  assert.equal(matchesProduct('ASUS PRIME B650M-A WIFI AM5 mATX Motherboard', tuf), false);
+  const k = 'ASUS Prime B550M-K ARGB AM4 Micro ATX Desktop Motherboard';
+  assert.equal(matchesProduct('ASUS PRIME B550M-A WIFI II AM4 Motherboard', k), false);
+  const aWifi = 'Asus Prime B550M-A WiFi II AM4 mATX Desktop Motherboard';
+  assert.equal(matchesProduct('ASUS PRIME B550M-A AM4 Motherboard', aWifi), false); // no WiFi
+  assert.equal(matchesProduct('ASUS Prime B550M-A Wi-Fi II AM4 mATX', aWifi), true);
+  assert.equal(matchesProduct('ASUS PRIME B760M-A WIFI LGA1700', 'ASUS B760M-AYW WIFI LGA1700 Motherboard'), false);
+});
+
+test('hyphens in memory speeds are not glued into the model', () => {
+  assert.equal(matchesProduct('Corsair Vengeance DDR5-6000 32GB (2x16GB)', 'Corsair Vengeance DDR5 6000MHz 32GB(2x16GB)'), true);
+});
+
+test('search text keeps model codes as the shops write them', () => {
+  assert.equal(buildQuery('ASUS B760M-AYW WIFI LGA1700 Motherboard'), 'asus b760m-ayw wifi');
+  assert.equal(buildQuery('Corsair Vengeance DDR5 6000MHz 32GB(2x16GB)', 'DRAM'), 'corsair ddr5 32gb');
+});
+
+test('spec noise is dropped from the search text', () => {
+  assert.deepEqual(buildQueries('AMD Ryzen 5 9600X AM5 6-Core 3.9 GHz Socket AM5 65W Radeon Graphics Processor', 'CPU'), ['amd 9600x']);
+  assert.deepEqual(buildQueries('Crucial P310 500GB Gen4 2280 NVMe SSD 6600/3500 MB', 'SSD'), ['crucial p310 500gb', 'crucial p310']);
+  assert.equal(buildQuery('ADATA Premier Memory Module 8 GB 1 X 8 GB DDR4 288-pin DIMM', 'DRAM'), 'adata 8gb ddr4');
+});
+
+test('a bare part number is the last-resort search, never just the brand', () => {
+  assert.deepEqual(buildQueries('Crucial 16GB DDR4-3200 SODIMM (CT16G4SFRA32A)', 'DRAM'), ['crucial 16gb ddr4', 'ct16g4sfra32a']);
+});
+
+test('part codes and speeds are not required, DDR only matters for memory', () => {
+  assert.equal(matchesProduct('Samsung 990 PRO 2TB NVMe M.2 SSD', 'Samsung 990 PRO 2TB M.2 2280 NVMe PCIe 4.0 SSD (MZ-V9P2T0BW)', 'SSD'), true);
+  assert.equal(matchesProduct('MSI PRO B760M-A WIFI mATX Motherboard', 'MSI PRO B760M-A WIFI DDR5 LGA1700 mATX Motherboard', 'MB'), true);
+  assert.equal(matchesProduct('MSI PRO B760M-A WIFI DDR4 mATX Motherboard', 'MSI PRO B760M-A WIFI DDR5 LGA1700 mATX Motherboard', 'MB'), false); // both name a different DDR
+  assert.equal(matchesProduct('Kingston 16GB DDR4 3200 SODIMM', 'Kingston 16GB DDR5 SODIMM', 'DRAM'), false);
+  assert.equal(matchesProduct('Crucial 8GB DDR4-3200 UDIMM', 'Crucial CT8G4DFRA32A Memory Module 8 GB 1 X 8 GB DDR4 3200 MHz UDIMM', 'DRAM'), true);
+});
+
+test('same chipset but a different board name does not match', () => {
+  const elite = 'Gigabyte B850 AORUS ELITE WIFI7 ICE AM5 DDR5 ATX Motherboard';
+  assert.equal(matchesProduct('Gigabyte B850 AORUS PRO ICE WIFI7 AM5 ATX Motherboard', elite, 'MB'), false);
+  assert.equal(matchesProduct('Gigabyte B850 AORUS ELITE WIFI7 ICE AM5 ATX Motherboard', elite, 'MB'), true);
+});
+
+test('"9700X 8 Cores" is not a kit layout and sockets are not models', () => {
+  assert.deepEqual(buildQueries('AMD Ryzen 7 9700X 8 Cores 16 Threads 5.5GHz AM5 CPU', 'CPU'), ['amd 9700x']);
+  assert.deepEqual(buildQueries('Intel Core I5-14400F LGA 1700 CPU', 'CPU'), ['intel i5 14400f']);
+  assert.equal(matchesProduct('Intel Core i5-14400F Desktop Processor', 'Intel Core I5-14400F LGA 1700 CPU', 'CPU'), true);
+  assert.equal(matchesProduct('Corsair Vengeance 32GB (2 x 16GB) DDR5', 'Corsair 32GB (2x16GB) DDR5 6000MHz', 'DRAM'), true);
+});
+
+test('memory speed and CAS latency must not conflict', () => {
+  const p = 'Klevv CRAS V RGB 32GB (2 x 16GB) DDR5 6000MHz CL28 Desktop RAM - Obsidian Black';
+  assert.equal(matchesProduct('KLEVV CRAS V RGB 32GB (2x16GB) 6000MHz CL28 DDR5 Black', p, 'DRAM'), true);
+  assert.equal(matchesProduct('KLEVV CRAS V RGB 32GB (2x16GB) 6000MHz CL30 DDR5 Black', p, 'DRAM'), false);
+  assert.equal(matchesProduct('KLEVV CRAS V RGB 32GB (2x16GB) 6400MHz CL28 DDR5 Black', p, 'DRAM'), false);
+  assert.equal(matchesProduct('Klevv CRAS V RGB 32GB (2 x 16GB) DDR5 6000MT/s Black', p, 'DRAM'), true); // CL omitted
+});
+
+test('"WiFi 7" and "WIFI7" are the same, and colour only conflicts when both say one', () => {
+  const p = 'Gigabyte B850 AORUS ELITE WIFI7 ICE AM5 DDR5 ATX Motherboard';
+  assert.equal(matchesProduct('Gigabyte B850 Aorus Elite WiFi 7 Ice DDR5 Motherboard [B850-A-ELITE-WF7-ICE]', p, 'MB'), true);
+  const kit = 'Klevv CRAS V RGB 32GB (2 x 16GB) DDR5 6000MHz CL30 Desktop RAM - Obsidian Black';
+  assert.equal(matchesProduct('KLEVV CRAS V RGB 32GB (2x 16GB) DDR5 6000MHz CL30 Desktop Memory', kit, 'DRAM'), true); // no colour stated
+  assert.equal(matchesProduct('Klevv CRAS V RGB 32GB (2x16GB) 6000MHz CL30 DDR5 White', kit, 'DRAM'), false);
+  assert.equal(matchesProduct('Klevv CRAS V RGB 32GB (2x16GB) 6000MHz CL30 DDR5 Black', kit, 'DRAM'), true);
+});
+
+test("a listing quoting the product's own part number matches", () => {
+  const p = 'KLEVV FIT V 32GB (16GB x2) 6000Mhz CL30 DDR5 RAM MODULE (KD5AGU880-60A300F)';
+  assert.equal(matchesProduct('Klevv Fit V 32GB (2x16GB) 6000MHz CL30 DDR5 White [KD5AGU880-60A300F]', p, 'DRAM'), true);
+  assert.equal(matchesProduct('Klevv Fit V 32GB (2x16GB) 6400MHz CL32 DDR5 White [KD5AGU880-64A320F]', p, 'DRAM'), false);
+});

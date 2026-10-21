@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pending Prices - Luxtronic Price Approval</title>
+<link rel="icon" type="image/png" href="/images/logo.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="header">
+  <div class="logo-container">
+    <img src="/images/logo.png" alt="Luxtronic" class="logo-img">
+    <a href="/" class="brand-name">LUXTRONIC</a>
+    <span class="tagline">Price Approval</span>
+  </div>
+  <div class="dark-mode-toggle" id="darkModeToggle"><i class="fas fa-moon" id="themeIcon"></i></div>
+</header>
+<nav class="nav-bar">
+  <a href="/" class="nav-item"><i class="fas fa-list-check"></i><span class="nav-text">Pending</span></a>
+  <a href="/history" class="nav-item"><i class="fas fa-clock-rotate-left"></i><span class="nav-text">History</span></a>
+  <a href="/products" class="nav-item"><i class="fas fa-microchip"></i><span class="nav-text">Products</span></a>
+  <a href="/lookup" class="nav-item"><i class="fas fa-magnifying-glass-dollar"></i><span class="nav-text">Lookup</span></a>
+</nav>
+<main>
+  <h1>Pending Prices</h1>
+  <p class="subtitle">Market price is the lowest in-stock Australian retailer price. Pick a markup, then approve to update Odoo.</p>
+
+  <div id="alertBox"></div>
+
+  <div class="run-bar">
+    <div class="run-status" id="runStatus">Loading run status...</div>
+    <button class="btn btn-sm" id="runBtn"><i class="fas fa-rotate"></i> Run pricing now</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Awaiting approval</div><div class="stat-number orange" id="statPending">-</div></div>
+    <div class="stat-card"><div class="stat-label">Price drops</div><div class="stat-number green" id="statDown">-</div><div class="stat-sub">market below current</div></div>
+    <div class="stat-card"><div class="stat-label">Price rises</div><div class="stat-number blue" id="statUp">-</div><div class="stat-sub">market above current</div></div>
+    <div class="stat-card"><div class="stat-label">Last submitted</div><div class="stat-number" id="statLast" style="font-size:16px;">-</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <div class="toolbar-filters">
+        <input type="search" id="search" placeholder="Search name or SKU">
+        <div class="tab-filters" id="groupTabs"></div>
+        <div class="tab-filters" id="dirTabs"></div>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn" id="rejectAllBtn"><i class="fas fa-ban"></i> Reject shown</button>
+        <button class="btn btn-primary" id="approveAllBtn"><i class="fas fa-check-double"></i> Approve shown</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Product</th><th class="num">Current</th><th>Retailers</th><th class="num">Market</th><th>Your markup</th><th></th></tr>
+        </thead>
+        <tbody id="proposalBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="empty" style="display:none;">Nothing waiting. New prices appear here after the next pricing run.</div>
+  </div>
+
+  <details class="panel" id="unpricedPanel" style="display:none;">
+    <summary><strong>Couldn't price</strong> <span id="unpricedCount" class="badge badge-warn"></span></summary>
+    <p class="subtitle" style="margin-top:10px;">Products the last run skipped or failed on. Check them by hand with Lookup, or leave them for the agent.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Product</th><th class="num">Odoo price</th><th>Why</th><th></th></tr></thead>
+        <tbody id="unpricedBody"></tbody>
+      </table>
+    </div>
+  </details>
+</main>
+<script src="/js/common.js"></script>
+<script src="/js/index.js"></script>
+</body>
+</html>

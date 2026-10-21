@@ -1,0 +1,22 @@
+# Explicit project name is required (see LUXTRONIC-INFRA-GUIDELINES.md §1):
+# this file lives in a `docker/` folder like every other Luxtronic project's,
+# so without a name Compose would share one volume across projects.
+name: luxtronic-price-approval
+
+services:
+  db:
+    image: postgres:17
+    container_name: luxtronic_price_approval_db
+    restart: always
+    environment:
+      POSTGRES_USER: luxtronic_user
+      POSTGRES_PASSWORD: luxtronic_password
+      POSTGRES_DB: luxtronic_price_approval_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - luxtronic_price_approval_postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+
+volumes:
+  luxtronic_price_approval_postgres_data:
