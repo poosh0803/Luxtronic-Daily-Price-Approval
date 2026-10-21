@@ -18,22 +18,26 @@ const MIN_DESCRIPTIVE_COVERAGE = 0.6; // share of a name's descriptive words a l
 
 // Words that distinguish products in the same family, so "5060" must not match "5060 Ti"
 // and "B550M-A" must not match "B550M-A WiFi II".
-const VARIANTS = new Set(['ti', 'super', 'xt', 'xtx', 'gre', 'white', 'black', 'plus', 'ultra', 'wifi', 'ii', 'ice', 'heatsink']);
+// Efficiency grades (gold/bronze/...) separate otherwise identical power supplies.
+const VARIANTS = new Set(['ti', 'super', 'xt', 'xtx', 'gre', 'white', 'black', 'plus', 'ultra', 'wifi', 'ii', 'ice', 'heatsink', 'bronze', 'gold', 'platinum', 'titanium', 'v2', 'v3', 'v4', 'sfx']);
 // Not required in a match (shops word these differently) but they make the search far more precise.
 const GPU_PREFIX = new Set(['rtx', 'gtx', 'rx', 'arc']);
 const FORM_FACTORS = new Set(['2230', '2242', '2260', '2280', '22110']);
 const SPEED_UNIT = /^\d+(mhz|ghz|mt|mts|mbs|gbs)$/; // 6000MHz vs 6000MT/s: shops disagree on the unit
 // CAS latency, PCIe gen, sockets, VRAM type, wattage, pin count, ordinals ("2nd Gen"), "3D NAND", "x2":
 // spec noise that shops leave out or word differently, so it can't be required or searched on.
-const NOISE_TOKEN = /^(cl\d+|gen\d+|pcie\d*|am\d|lga\d+|gddr\d+x?|usb\d+|wifi\d+e?|\d+w|\d+pin|\d(st|nd|rd|th)|\dd|x\d|\d{1,2}g)$/;
+const NOISE_TOKEN = /^(cl\d+|gen\d+|pcie\d*|atx\d*|am\d|lga\d+|gddr\d+x?|usb\d+|wifi\d+e?|\d+w|\d+pin|\d(st|nd|rd|th)|\dd|x\d|\d{1,2}g)$/;
 const DDR = /^ddr\d$/;
 // Words that say what kind of thing it is, not which one, plus brands (shops often drop them).
-const GENERIC = new Set(['motherboard', 'mainboard', 'memory', 'module', 'ram', 'graphics', 'card', 'video', 'desktop', 'processor', 'cpu', 'gpu', 'ssd', 'solid', 'state', 'drive', 'nvme', 'pcie', 'pci', 'express', 'matx', 'atx', 'itx', 'eatx', 'micro', 'mini', 'socket', 'lga', 'with', 'and', 'the', 'for', 'series', 'unlocked', 'rgb', 'kit', 'core', 'cores', 'thread', 'threads', 'computer', 'sata', 'serial', 'nand', 'dimm', 'sodimm', 'udimm', 'gaming', 'edition', 'oc', 'radeon', 'geforce', 'nvidia', 'amd', 'intel', 'm', 'ghz', 'mhz', 'gb', 'tb', 'ddr', 'solid', 'short', 'version', 'gen']);
+const GENERIC = new Set(['motherboard', 'mainboard', 'memory', 'module', 'ram', 'graphics', 'card', 'video', 'desktop', 'processor', 'cpu', 'gpu', 'ssd', 'solid', 'state', 'drive', 'nvme', 'pcie', 'pci', 'express', 'matx', 'atx', 'itx', 'eatx', 'micro', 'mini', 'socket', 'lga', 'with', 'and', 'the', 'for', 'series', 'unlocked', 'rgb', 'kit', 'core', 'cores', 'thread', 'threads', 'computer', 'sata', 'serial', 'nand', 'dimm', 'sodimm', 'udimm', 'gaming', 'edition', 'oc', 'radeon', 'geforce', 'nvidia', 'amd', 'intel', 'm', 'ghz', 'mhz', 'gb', 'tb', 'ddr', 'solid', 'short', 'version', 'gen', 'psu', 'power', 'supply', 'modular']);
 
 function normalise(text) {
   return String(text)
     .toLowerCase()
     .replace(/(\d)\s+(gb|tb)\b/g, '$1$2') // "1 TB" -> "1tb"
+    .replace(/\b(\d{3,4})\s*w\b/g, '$1w') // "850 W" -> "850w"
+    .replace(/\b80\s*(?:\+|plus)/g, ' ') // "80+ Gold" / "80 PLUS Gold": the grade word says it, and "plus" is a variant word elsewhere
+    .replace(/\batx\s*3(?:\.\d)?/g, ' ') // "ATX 3.1" / "ATX3.1": a standard revision, worded differently by every shop
     .replace(/(\d+)\s*gb\s*x\s*(\d)\b/g, '$2x$1gb') // "16GB x2" -> "2x16gb"
     .replace(/\b(\d{1,2})\s*x\s*(\d+(?:gb|tb)\b)/g, '$1x$2') // "2 x 16GB" -> "2x16gb" (but never "9700X 8 Cores")
     .replace(/\b(lga|socket)\s*\d{3,4}\b/g, ' ') // "LGA 1700": a socket, not a model number
@@ -48,7 +52,7 @@ function normalise(text) {
     .replace(/\b([a-z]*\d[a-z0-9]*)-([a-z0-9]{1,3})\b/g, '$1$2')
     .replace(/\b(rtx|gtx|rx|gt|arc)\s*(\d{3,4})/g, '$1 $2') // "RTX4060" and "RTX 4060" are the same card
     .replace(/\[[^\]]*\]/g, ' ') // [part numbers] in brackets
-    .replace(/\((?=[a-z0-9-]*\d)(?=[a-z0-9-]*[a-z])[a-z0-9-]{8,}\)/g, ' ') // (part numbers) in parentheses, but not "(2x16gb)"
+    .replace(/\((?=[a-z0-9.-]*\d)(?=[a-z0-9.-]*[a-z])[a-z0-9.-]{8,}\)/g, ' ') // (part numbers) in parentheses, but not "(2x16gb)"
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
@@ -75,15 +79,23 @@ const isCapacity = (tok) => /^\d+(gb|tb)$/.test(tok) || /^\d+x\d+(gb|tb)$/.test(
 
 // Tokens a candidate must contain: model numbers, capacities, and (for memory) the DDR generation.
 function isRequired(tok, category) {
+  if (category === 'PSU' && /^\d{3,4}w$/.test(tok)) return true; // wattage is what a power supply is
   if (SPEED_UNIT.test(tok) || NOISE_TOKEN.test(tok) || FORM_FACTORS.has(tok) || VARIANTS.has(tok) || isPartCode(tok)) return false;
   if (DDR.test(tok)) return category === 'DRAM';
   if (/^\d+x\d+(gb|tb)$/.test(tok)) return true; // kit layout, e.g. 2x16gb
   return /\d/.test(tok) && (/[a-z]/.test(tok) || tok.length >= 3);
 }
 
+// "FSP VITA 850 GM ... 850 W": the bare 850 is the wattage again, and listings that only say 850W lack it.
+function dropWattageDuplicates(list, category) {
+  if (category !== 'PSU') return list;
+  const watts = new Set(list.filter((t) => /^\d{3,4}w$/.test(t)).map((t) => t.slice(0, -1)));
+  return list.filter((t) => !watts.has(t));
+}
+
 export function productSignature(name, category = '') {
   const toks = tokens(name);
-  const required = [...new Set(toks.filter((t) => isRequired(t, category)))];
+  const required = dropWattageDuplicates([...new Set(toks.filter((t) => isRequired(t, category)))], category);
   // Codenames in brackets ("(Arrow Lake)") and the colour tail after " - " are marketing: listings often drop them.
   const plain = String(name).replace(/\([^)]*\)/g, ' ').split(/\s+-\s+/)[0];
   const descriptive = [...new Set(tokens(plain).slice(1).filter((t) =>
@@ -114,12 +126,12 @@ export function buildQueries(productName, category = '') {
     if (/^[a-z0-9]*\d[a-z0-9]*-[a-z0-9]{1,3}$/i.test(piece)) asWritten.set(normalise(piece), piece.toLowerCase());
   }
 
-  const search = toks.slice(1).filter((t) => (isRequired(t, category) && !/^\d+x\d+(gb|tb)$/.test(t)) || VARIANTS.has(t) || GPU_PREFIX.has(t));
-  const model = toks.slice(1).filter((t) => (isRequired(t, category) && !isCapacity(t) && !DDR.test(t)) || GPU_PREFIX.has(t));
+  const search = dropWattageDuplicates(toks.slice(1).filter((t) => (isRequired(t, category) && !/^\d+x\d+(gb|tb)$/.test(t)) || VARIANTS.has(t) || GPU_PREFIX.has(t)), category);
+  const model = dropWattageDuplicates(toks.slice(1).filter((t) => (isRequired(t, category) && !isCapacity(t) && !DDR.test(t)) || GPU_PREFIX.has(t)), category);
   const say = (list) => [...new Set(list.map((t) => asWritten.get(t) || t))];
 
   // A long part number alone ("CT16G4SFRA32A", "MZ-V9P2T0BW") is the sharpest search when the name has nothing else.
-  const bracketed = [...String(productName).matchAll(/[([]([A-Za-z0-9-]{8,})[)\]]/g)]
+  const bracketed = [...String(productName).matchAll(/[([]([A-Za-z0-9.-]{8,})[)\]]/g)]
     .map((m) => m[1].toLowerCase())
     .filter((code) => /\d/.test(code) && /[a-z]/.test(code));
   const partNumbers = [...new Set([...bracketed, ...pieces
@@ -139,7 +151,7 @@ const squash = (text) => String(text).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 // Manufacturer part numbers in a product name: written in (brackets) or [brackets], or long letter/digit mixes.
 function partNumbersOf(name) {
-  const written = [...String(name).matchAll(/[([]([A-Za-z0-9-]{8,})[)\]]/g)].map((m) => squash(m[1]));
+  const written = [...String(name).matchAll(/[([]([A-Za-z0-9.-]{8,})[)\]]/g)].map((m) => squash(m[1]));
   const mixed = String(name).split(/\s+/).filter((piece) => tokens(piece).some((t) => t.length >= 8 && isPartCode(t))).map(squash);
   return [...new Set([...written, ...mixed])].filter((code) => code.length >= 8 && /\d/.test(code) && /[a-z]/.test(code));
 }

@@ -39,3 +39,11 @@ test('resolveBase defaults to the market price and only accepts a real shop pric
   assert.ok(resolveBase(shops, 265, 123).error);
   assert.ok(resolveBase(shops, 265, 'abc').error);
 });
+
+test('PSU is a priced category but PSU / Cable is not', () => {
+  assert.equal(isPcCategory('PSU / Modular'), true);
+  assert.equal(isPcCategory('PSU / Non-Modular'), true);
+  assert.equal(isPcCategory('PSU / Cable'), false);
+  assert.equal(isPcCategory('PSU/Cable'), false);
+  assert.equal(isPcCategory('Cable / HDMI'), false);
+});

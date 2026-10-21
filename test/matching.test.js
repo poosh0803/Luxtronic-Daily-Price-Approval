@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildQuery, buildQueries, matchesProduct, evaluate } from '../src/matching.js';
+import { buildQuery, buildQueries, matchesProduct, evaluate, productSignature } from '../src/matching.js';
 
 test('buildQuery keeps brand and distinctive tokens only', () => {
   assert.equal(buildQuery('AMD Ryzen 7 9800X3D 8 Core AM5 CPU'), 'amd 9800x3d');
@@ -129,4 +129,29 @@ test("a listing quoting the product's own part number matches", () => {
   const p = 'KLEVV FIT V 32GB (16GB x2) 6000Mhz CL30 DDR5 RAM MODULE (KD5AGU880-60A300F)';
   assert.equal(matchesProduct('Klevv Fit V 32GB (2x16GB) 6000MHz CL30 DDR5 White [KD5AGU880-60A300F]', p, 'DRAM'), true);
   assert.equal(matchesProduct('Klevv Fit V 32GB (2x16GB) 6400MHz CL32 DDR5 White [KD5AGU880-64A320F]', p, 'DRAM'), false);
+});
+
+test('power supplies: wattage and efficiency grade must agree', () => {
+  const p = 'Lian Li Edge Gold 850W 80+ Gold Modular ATX 3.1 Power Supply - White';
+  assert.equal(matchesProduct('Lian Li EDGE 850W 80 PLUS Gold ATX 3.1 Fully Modular PSU White', p, 'PSU'), true);
+  assert.equal(matchesProduct('Lian Li EDGE 1000W 80 PLUS Gold ATX 3.1 Fully Modular PSU White', p, 'PSU'), false); // other wattage
+  assert.equal(matchesProduct('Lian Li EDGE 850W 80 PLUS Platinum ATX 3.1 Modular PSU White', p, 'PSU'), false); // other grade
+  assert.equal(matchesProduct('Lian Li EDGE 850W 80 PLUS Gold ATX 3.1 Modular PSU Black', p, 'PSU'), false); // other colour
+});
+
+test('a bare wattage that repeats the wattage token is not a second requirement', () => {
+  const p = 'FSP VITA 850 GM FULL-MODULAR PSU 850 W ATX3.1 PCIe 5.1';
+  assert.deepEqual(productSignature(p, 'PSU').required, ['850w']);
+  assert.equal(matchesProduct('FSP Vita GM 850W 80+ Gold Fully Modular ATX 3.1 PSU', p, 'PSU'), false); // gold: product doesn't say gold
+  assert.equal(matchesProduct('FSP VITA GM 850W Full Modular ATX3.1 PSU', p, 'PSU'), true);
+  assert.equal(matchesProduct('FSP VITA GM 750W Full Modular ATX3.1 PSU', p, 'PSU'), false);
+});
+
+test('revision and size words must agree (V2, SFX)', () => {
+  const p = 'Lian Li Edge Gold 850W 80+ Gold Modular ATX 3.1 Power Supply - Black';
+  assert.equal(matchesProduct('Lian Li EDGE Gold V2 850W 80 PLUS Gold Modular PSU without Hub Black', p, 'PSU'), false);
+  assert.equal(matchesProduct('Lian Li EDGE Gold 850W 80 PLUS Gold ATX 3.1 Modular PSU Black', p, 'PSU'), true);
+  const v2 = 'Lian LI Edge Gold V2 850W Black without Hub 80 PLUS Gold (EG0850C.B)';
+  assert.equal(matchesProduct('Lian Li EDGE Gold V2 850W Black 80 PLUS Gold PSU without Hub', v2, 'PSU'), true);
+  assert.equal(matchesProduct('XPG PYMCORE 750W ATX Modular PSU', 'XPG PYMCORE 750W SFX POWER SUPPLY ATX3.1 MODULAR', 'PSU'), false);
 });

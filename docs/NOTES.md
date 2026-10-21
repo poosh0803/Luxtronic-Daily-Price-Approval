@@ -48,6 +48,7 @@ Each rule exists because a real product name broke without it:
 - **Memory speed and CAS latency** can't conflict (6000 vs 6400, CL28 vs CL30); DDR generation is required for memory but only a conflict check for boards (D4 = DDR4).
 - **Descriptive words** (Aorus ELITE vs PRO) need 60% coverage; codenames in brackets and the colour tail after " - " are ignored.
 - **Part numbers:** a listing that quotes the product's own part number matches outright; part numbers are never required (shops leave them out).
+- **Power supplies:** wattage is the one spec that defines a PSU, so for PSUs `850W` is required (elsewhere wattage is noise); efficiency grades (Gold / Bronze / Platinum), `V2` and `SFX` must agree; "80+ Gold" and "ATX 3.1" wordings are normalised away. A real case: a cheaper Edge Gold **V2** (no hub) listing was being priced against the standard Edge Gold. `PSU / Cable` (cables, hubs) is excluded via `EXCLUDE_CATEGORIES`.
 - Search ladder: the product's own **search words**, then brand + model + capacity, then brand + model, then the bare part number.
 
 Acceptance: 2 of the 4 main shops, prices within 60% of each other, market within 3x of Odoo's price.

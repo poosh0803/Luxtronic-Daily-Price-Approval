@@ -47,20 +47,34 @@ export function categoryGroup(categoryName) {
   return String(categoryName || '').split('/')[0].trim();
 }
 
+const DEFAULT_CATEGORIES = 'CPU,GPU,DRAM,SSD,MB,PSU';
+const DEFAULT_EXCLUDED = 'PSU / Cable';
+
 export function pcCategories() {
-  return (process.env.PC_CATEGORIES || 'CPU,GPU,DRAM,SSD,MB')
+  return (process.env.PC_CATEGORIES || DEFAULT_CATEGORIES)
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 }
 
+// Full Odoo categories (or prefixes) to leave out even though their top-level group is included,
+// e.g. "PSU / Cable" holds cables and hubs, not power supplies.
+export function excludedCategories() {
+  return (process.env.EXCLUDE_CATEGORIES ?? DEFAULT_EXCLUDED)
+    .split(',')
+    .map((s) => s.trim().toLowerCase().replace(/\s*\/\s*/g, ' / '))
+    .filter(Boolean);
+}
+
 export function isPcCategory(categoryName) {
+  const name = String(categoryName || '').trim().toLowerCase().replace(/\s*\/\s*/g, ' / ');
+  if (excludedCategories().some((ex) => name === ex || name.startsWith(`${ex} / `))) return false;
   return pcCategories().includes(categoryGroup(categoryName).toLowerCase());
 }
 
 // Configured categories in their original spelling and order, for UI tabs.
 export function pcCategoryLabels() {
-  return (process.env.PC_CATEGORIES || 'CPU,GPU,DRAM,SSD,MB').split(',').map((s) => s.trim()).filter(Boolean);
+  return (process.env.PC_CATEGORIES || DEFAULT_CATEGORIES).split(',').map((s) => s.trim()).filter(Boolean);
 }
 
 // The price a markup is added to: the market price, or (when the approver clicked one) a shop price

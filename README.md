@@ -2,7 +2,7 @@
 
 Internal LAN website for approving PC-part price changes. Prices are gathered by code, a person approves them, and only then does anything reach Odoo.
 
-1. A **pricing run** (button, schedule, or the agent API) syncs PC parts (CPU, GPU, RAM, SSD, motherboards) from Odoo, looks up prices at Centrecom, Mwave, Scorptec and PC Case Gear, keeps only listings that are clearly the same product, and creates **suggestions**. Products it can't match with confidence are listed under **Couldn't price** with the reason.
+1. A **pricing run** (button, schedule, or the agent API) syncs PC parts (CPU, GPU, RAM, SSD, motherboards, power supplies) from Odoo, looks up prices at Centrecom, Mwave, Scorptec and PC Case Gear, keeps only listings that are clearly the same product, and creates **suggestions**. Products it can't match with confidence are listed under **Couldn't price** with the reason.
 2. You open the site and see each suggestion's shop prices, the market price (lowest in-stock) and the change against Odoo. Pick **+0 / +5 / +10 / +15** (AUD on top of market) or a **Custom** amount, then approve.
 3. Approving writes the new sales price to Odoo. Rejecting does nothing. **Revert** on the History page puts the previous price back.
 
@@ -46,7 +46,7 @@ Responses are `{ success: true, ... }` or `{ success: false, message }`.
 - **Start:** the button, `POST /api/runs`, the agent API, or the schedule: set `AUTO_RUN_HOUR` (0-23, Australia/Sydney) and one run starts per day once that hour passes. Restarts never double-run; blank means off. One run at a time.
 - **Which products:** tracked products **with stock in Odoo** (quantity above 0, refreshed by the sync at the start of the run). `{ "includeZeroStock": true }` includes the rest. Products marked **No listing** are skipped until the mark expires (30 days by default, then retried); **Retry** clears it early.
 - **Search:** a product's own **Search words** are tried first, then up to two searches built from the Odoo name (brand + model + capacity, then brand + model, then the bare part number). Spec noise (wattage, pin counts, speeds, sockets, part numbers) is left out of searches.
-- **Matching** (`src/matching.js`): model numbers, capacity and DDR generation (memory) must appear; variant words (Ti, Super, WiFi, II, ICE, Heatsink, White/Black) and board suffixes (B650M-**E** vs B650M-**A**) must agree; memory speed and CAS latency must not conflict; a listing quoting the product's own part number matches outright; bundles and used items are ignored.
+- **Matching** (`src/matching.js`): model numbers, capacity and DDR generation (memory) must appear; variant words (Ti, Super, WiFi, II, ICE, Heatsink, V2, SFX, Gold/Bronze, White/Black) and board suffixes (B650M-**E** vs B650M-**A**) must agree; memory speed and CAS latency must not conflict; for power supplies the wattage is required; a listing quoting the product's own part number matches outright; bundles and used items are ignored.
 - **Accepting a match:** the cheapest matching row per shop is kept, and it needs **2 of the 4 main shops**, prices within 60% of each other, and a market price within 3x of Odoo's. Anything else is **skipped with a reason**, never guessed.
 - **Safety:** a run stops itself after 5 failed lookups in a row. Outcomes and reasons are stored in `runs` / `run_items`.
 
@@ -69,7 +69,7 @@ Only these fixed hosts are contacted; callers supply a search term, never a URL.
 - **Final price** = base price (the market price unless you picked a shop price) + markup. Presets come from `MARKUP_OPTIONS`; **Custom** accepts any amount within ±$1000 as long as the final price stays above $0.
 - **Approve** pushes to Odoo first; if Odoo fails, the suggestion stays pending and the error is shown so you can retry. A product has one pending suggestion at a time, and a newer run replaces it.
 - A market move over 20% from the current price shows a "Big change - check" badge.
-- `PC_CATEGORIES` sets which Odoo top-level categories count as PC parts (default `CPU,GPU,DRAM,SSD,MB`).
+- `PC_CATEGORIES` sets which Odoo top-level categories count as PC parts (default `CPU,GPU,DRAM,SSD,MB,PSU`). `EXCLUDE_CATEGORIES` leaves out sub-categories of those (default `PSU / Cable`, which holds cables and hubs). Changing either needs a restart and a **Sync from Odoo**.
 - Known limit: cosmetic variants that shops don't tell apart (e.g. OC vs non-OC of one card) can carry the same shop prices.
 
 ## Odoo dependency
