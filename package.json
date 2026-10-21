@@ -11,12 +11,15 @@
     "test": "node --test"
   },
   "dependencies": {
-    "cheerio": "^1.2.0",
+    "cheerio": "1.0.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.17"
   }
 }
