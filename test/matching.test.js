@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { buildQuery, buildQueries, matchesProduct, evaluate, productSignature } from '../src/matching.js';
 
 test('buildQuery keeps brand and distinctive tokens only', () => {
-  assert.equal(buildQuery('AMD Ryzen 7 9800X3D 8 Core AM5 CPU'), 'amd 9800x3d');
-  assert.equal(buildQuery('ASUS Dual GeForce RTX 5060 Ti 16GB OC GDDR7 Graphics Card'), 'asus rtx 5060 ti 16gb');
+  assert.deepEqual(buildQueries('AMD Ryzen 7 9800X3D 8 Core AM5 CPU'), ['amd ryzen 9800x3d', 'amd 9800x3d']);
+  assert.deepEqual(buildQueries('ASUS Dual GeForce RTX 5060 Ti 16GB OC GDDR7 Graphics Card'), ['asus dual rtx 5060 ti 16gb', 'asus rtx 5060 ti 16gb', 'asus rtx 5060']);
 });
 
 test('model numbers must all be present', () => {
@@ -53,7 +53,7 @@ test('bundles flagged as noise are ignored', () => {
 
 test('graphics card prefix spacing does not matter', () => {
   assert.equal(matchesProduct('ASUS Dual GeForce RTX 4060 EVO OC 8GB GDDR6', 'ASUS DUAL GeForce RTX4060 OC 8GB EVO GDDR6'), true);
-  assert.equal(buildQuery('ASUS DUAL GeForce RTX4060 OC 8GB EVO GDDR6'), 'asus rtx 4060 8gb');
+  assert.deepEqual(buildQueries('ASUS DUAL GeForce RTX4060 OC 8GB EVO GDDR6'), ['asus dual evo rtx 4060 8gb', 'asus rtx 4060 8gb', 'asus rtx 4060']);
 });
 
 test('board model suffixes and WiFi variants are different products', () => {
@@ -74,13 +74,13 @@ test('hyphens in memory speeds are not glued into the model', () => {
 
 test('search text keeps model codes as the shops write them', () => {
   assert.equal(buildQuery('ASUS B760M-AYW WIFI LGA1700 Motherboard'), 'asus b760m-ayw wifi');
-  assert.equal(buildQuery('Corsair Vengeance DDR5 6000MHz 32GB(2x16GB)', 'DRAM'), 'corsair ddr5 32gb');
+  assert.deepEqual(buildQueries('Corsair Vengeance DDR5 6000MHz 32GB(2x16GB)', 'DRAM'), ['corsair vengeance ddr5 32gb', 'corsair ddr5 32gb']);
 });
 
 test('spec noise is dropped from the search text', () => {
-  assert.deepEqual(buildQueries('AMD Ryzen 5 9600X AM5 6-Core 3.9 GHz Socket AM5 65W Radeon Graphics Processor', 'CPU'), ['amd 9600x']);
+  assert.deepEqual(buildQueries('AMD Ryzen 5 9600X AM5 6-Core 3.9 GHz Socket AM5 65W Radeon Graphics Processor', 'CPU'), ['amd ryzen 9600x', 'amd 9600x']);
   assert.deepEqual(buildQueries('Crucial P310 500GB Gen4 2280 NVMe SSD 6600/3500 MB', 'SSD'), ['crucial p310 500gb', 'crucial p310']);
-  assert.equal(buildQuery('ADATA Premier Memory Module 8 GB 1 X 8 GB DDR4 288-pin DIMM', 'DRAM'), 'adata 8gb ddr4');
+  assert.deepEqual(buildQueries('ADATA Premier Memory Module 8 GB 1 X 8 GB DDR4 288-pin DIMM', 'DRAM'), ['adata premier 8gb ddr4', 'adata 8gb ddr4']);
 });
 
 test('a bare part number is the last-resort search, never just the brand', () => {
@@ -102,7 +102,7 @@ test('same chipset but a different board name does not match', () => {
 });
 
 test('"9700X 8 Cores" is not a kit layout and sockets are not models', () => {
-  assert.deepEqual(buildQueries('AMD Ryzen 7 9700X 8 Cores 16 Threads 5.5GHz AM5 CPU', 'CPU'), ['amd 9700x']);
+  assert.deepEqual(buildQueries('AMD Ryzen 7 9700X 8 Cores 16 Threads 5.5GHz AM5 CPU', 'CPU'), ['amd ryzen 9700x', 'amd 9700x']);
   assert.deepEqual(buildQueries('Intel Core I5-14400F LGA 1700 CPU', 'CPU'), ['intel i5 14400f']);
   assert.equal(matchesProduct('Intel Core i5-14400F Desktop Processor', 'Intel Core I5-14400F LGA 1700 CPU', 'CPU'), true);
   assert.equal(matchesProduct('Corsair Vengeance 32GB (2 x 16GB) DDR5', 'Corsair 32GB (2x16GB) DDR5 6000MHz', 'DRAM'), true);
@@ -154,4 +154,24 @@ test('revision and size words must agree (V2, SFX)', () => {
   const v2 = 'Lian LI Edge Gold V2 850W Black without Hub 80 PLUS Gold (EG0850C.B)';
   assert.equal(matchesProduct('Lian Li EDGE Gold V2 850W Black 80 PLUS Gold PSU without Hub', v2, 'PSU'), true);
   assert.equal(matchesProduct('XPG PYMCORE 750W ATX Modular PSU', 'XPG PYMCORE 750W SFX POWER SUPPLY ATX3.1 MODULAR', 'PSU'), false);
+});
+
+test('a listing of a different product line with the same wattage is rejected (Lian Li Edge Gold vs RS1000G)', () => {
+  const p = 'Lian Li Edge Gold 1000W 80+ Gold Modular ATX 3.1 Power Supply - Black';
+  assert.equal(matchesProduct('Lian Li RS1000G Rotational Shift 1000W 80+ Gold Fully Modular ATX Power Supply', p, 'PSU'), false);
+  assert.equal(matchesProduct('Lian Li EDGE Gold 1000W 80+ Gold ATX 3.1 Modular PSU Black', p, 'PSU'), true);
+  // a bare product with no line name must not take a listing that names its own model code
+  assert.equal(matchesProduct('Lian Li RS1000G 1000W 80+ Gold PSU', 'Lian Li 1000W 80+ Gold Modular PSU', 'PSU'), false);
+});
+
+test('the product line word is required even when it is the only one', () => {
+  const dual = 'ASUS Dual GeForce RTX 5060 8GB OC GDDR7 Graphics Card';
+  assert.equal(matchesProduct('ASUS Dual GeForce RTX 5060 8GB GDDR7', dual, 'GPU'), true);
+  assert.equal(matchesProduct('ASUS TUF Gaming GeForce RTX 5060 8GB GDDR7', dual, 'GPU'), false);
+  assert.equal(matchesProduct('ASUS Prime GeForce RTX 5060 8GB GDDR7', dual, 'GPU'), false);
+});
+
+test('search words keep a two-word brand and the product line', () => {
+  const p = 'Lian Li Edge Gold 1000W 80+ Gold Modular ATX 3.1 Power Supply - Black';
+  assert.deepEqual(buildQueries(p, 'PSU'), ['lian li edge gold 1000w black', 'lian li gold 1000w black', 'lian li 1000w']);
 });

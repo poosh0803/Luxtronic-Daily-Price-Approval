@@ -28,6 +28,7 @@ const SPEED_UNIT = /^\d+(mhz|ghz|mt|mts|mbs|gbs)$/; // 6000MHz vs 6000MT/s: shop
 // spec noise that shops leave out or word differently, so it can't be required or searched on.
 const NOISE_TOKEN = /^(cl\d+|gen\d+|pcie\d*|atx\d*|am\d|lga\d+|gddr\d+x?|usb\d+|wifi\d+e?|\d+w|\d+pin|\d(st|nd|rd|th)|\dd|x\d|\d{1,2}g)$/;
 const DDR = /^ddr\d$/;
+const EXTRA_MODEL_CODE = /^[a-z]{1,3}\d{3,5}[a-z]{0,2}$/; // rs1000g, rm850e, a650bn: a model code, not a speed or a spec
 // Words that say what kind of thing it is, not which one, plus brands (shops often drop them).
 const GENERIC = new Set(['motherboard', 'mainboard', 'memory', 'module', 'ram', 'graphics', 'card', 'video', 'desktop', 'processor', 'cpu', 'gpu', 'ssd', 'solid', 'state', 'drive', 'nvme', 'pcie', 'pci', 'express', 'matx', 'atx', 'itx', 'eatx', 'micro', 'mini', 'socket', 'lga', 'with', 'and', 'the', 'for', 'series', 'unlocked', 'rgb', 'kit', 'core', 'cores', 'thread', 'threads', 'computer', 'sata', 'serial', 'nand', 'dimm', 'sodimm', 'udimm', 'gaming', 'edition', 'oc', 'radeon', 'geforce', 'nvidia', 'amd', 'intel', 'm', 'ghz', 'mhz', 'gb', 'tb', 'ddr', 'solid', 'short', 'version', 'gen', 'psu', 'power', 'supply', 'modular']);
 
@@ -113,11 +114,17 @@ export function productSignature(name, category = '') {
   };
 }
 
+const TWO_WORD_BRANDS = { lian: 'li', team: 'group', cooler: 'master', western: 'digital', be: 'quiet', silicon: 'power', thermal: 'grizzly', g: 'skill' };
+
 // Search texts to try, most specific first. Shops' search ANDs every word, so an over-specific
 // query returns nothing; later ones fall back to brand + model only, then to the bare part number.
 export function buildQueries(productName, category = '') {
   const toks = tokens(productName);
-  const brand = toks[0] || '';
+  const sig = productSignature(productName, category);
+  // "Lian Li", "Team Group", "Cooler Master": the second word is part of the brand and the search needs it.
+  const brandWords = [toks[0], TWO_WORD_BRANDS[toks[0]] === toks[1] ? toks[1] : null].filter(Boolean);
+  const brand = brandWords.join(' ');
+  const lineWords = sig.descriptive.filter((t) => !brandWords.includes(t)).slice(0, 2);
 
   // Board codes keep the hyphen the shops write ("B760M-AYW"), not the glued token used for matching.
   const pieces = String(productName).replace(/\[[^\]]*\]/g, ' ').replace(/[(),]/g, ' ').split(/\s+/).filter(Boolean);
@@ -138,7 +145,13 @@ export function buildQueries(productName, category = '') {
     .filter((piece) => /^[a-z0-9-]+$/i.test(piece) && tokens(piece).some((t) => t.length >= 8 && isPartCode(t)))
     .map((piece) => piece.toLowerCase())])];
 
-  const queries = [[brand, ...say(search)].slice(0, 6), [brand, ...say(model)].slice(0, 4), partNumbers.slice(0, 1)]
+  const rest = (list) => list.filter((t) => !brandWords.includes(t));
+  const queries = [
+    [brand, ...lineWords, ...say(rest(search))].slice(0, 7), // brand + product line + model + variants
+    [brand, ...say(rest(search))].slice(0, 6),
+    [brand, ...say(rest(model))].slice(0, 4),
+    partNumbers.slice(0, 1),
+  ]
     .map((words) => words.filter(Boolean).join(' '))
     .filter((q) => q && q !== brand); // a brand on its own matches half the shop
   return [...new Set(queries)];
@@ -185,8 +198,13 @@ export function matchesProduct(candidateName, productName, category = '') {
   const candDdr = candToks.find((t) => DDR.test(t));
   if (sig.ddr && candDdr && sig.ddr !== candDdr) return false;
 
-  // Same chipset, different board (B850 AORUS ELITE vs B850 AORUS PRO): most descriptive words must agree too.
-  if (sig.descriptive.length >= 2) {
+  // A model code the listing carries but the product doesn't (Lian Li RS1000G vs Edge Gold) is a different product.
+  const own = new Set(sig.toks);
+  if (candToks.some((t) => EXTRA_MODEL_CODE.test(t) && !own.has(t) && !NOISE_TOKEN.test(t) && !isPartCode(t))) return false;
+
+  // Same chipset, different board (B850 AORUS ELITE vs B850 AORUS PRO), or same wattage, different line
+  // (Edge Gold vs RS1000G): the product's descriptive words must be in the listing too.
+  if (sig.descriptive.length >= 1) {
     const covered = sig.descriptive.filter((t) => cand.has(t)).length / sig.descriptive.length;
     if (covered < MIN_DESCRIPTIVE_COVERAGE) return false;
   }
